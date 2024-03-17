@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Socket.IO Client</title>
+  </head>
+  <body>
+    <h1>Socket.IO Client</h1>
+
+    <input type="checkbox" id="door" name="door" value="Door" onclick="sendMessage()"/>
+    <br />
+
+    <!-- Include the Socket.IO client library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.2.0/socket.io.js"></script>
+
+    <script>
+      const socket = io();
+      const messageInput = document.getElementById("messageInput");
+      const messageList = document.getElementById("messageList");
+      const door = document.getElementById("door");
+
+      socket.on("doorRes", (message) => {
+        console.log("received ..", message);
+        door.checked = message;
+      });
+
+      function sendMessage() {
+        console.log("door: ", door.checked);
+        socket.emit("doorReq", door.checked);
+      }
+    </script>
+  </body>
+</html>
