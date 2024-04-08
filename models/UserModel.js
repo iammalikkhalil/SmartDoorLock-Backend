@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
+      unique: true,
     },
     password: {
       type: String,
@@ -38,10 +39,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    otp: {
+      type: String,
+    },
     status: {
       type: String,
-      enum: ["active", "inactive"],
-      default: 'active',
+      enum: ["active", "inactive", "unverified"],
+      default: 'unverified',
     },
     role: {
       type: mongoose.Schema.Types.ObjectId,

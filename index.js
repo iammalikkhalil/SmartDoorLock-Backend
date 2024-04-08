@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import mongodb from './config/dbconnection.js';
 import dotenv from 'dotenv';
+import ErrorHandler from './middleware/ErrorHandler.js';
 
 dotenv.config();
 mongodb();
@@ -50,6 +51,8 @@ app.use('/images', express.static(path.join(__dirname, 'images')));
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+app.use(ErrorHandler);
 
 server.listen(PORT, () => {
   console.log(`Server is listening on http://${process.env.MQTT_HOST}:${PORT}/`);

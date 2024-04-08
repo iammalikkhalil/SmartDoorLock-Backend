@@ -27,7 +27,6 @@ class WebSocketService {
         // send response to admin MQTT
         console.log("request from socket.io forwarded to mqtt");
         this.mqttService.publish('MQTTAdminResponse', String(1));
-        console.log("");
         // update ui for the specific user
         socket.emit('WSUpdateUI', "1");
 

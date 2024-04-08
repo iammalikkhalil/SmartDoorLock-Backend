@@ -6,7 +6,6 @@ const image = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const fileExtension = file.originalname.split('.').pop();
-    console.log(file.originalname);
     cb(null, req.body.username + '.' + fileExtension);
   },
 });

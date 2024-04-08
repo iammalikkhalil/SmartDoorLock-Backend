@@ -1,6 +1,7 @@
 import userModel from "../models/UserModel.js";
-import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
+import { generateOtp } from "../utils/GenerateOtp.js";
+import sendEmail from "../utils/EmailSender.js";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -12,71 +13,104 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
   try {
-    let data = await userModel.findOne({ username: req.body.username }).populate("role");
-    if (data != null) {
-      if (data.password == req.body.password) {
-        const token = jwt.sign({ data: data }, process.env.JWT_SECRETKEY);
-        res.send({
+    let user = await userModel.findOne({ username: req.body.username }).populate("role");
+
+    if (user != null) {
+      // Check if account is verified
+      if (user.status == "unverified") {
+        const otp = generateOtp(6);
+        await sendEmail(user.email, " ", otp); // Assuming you have a function sendEmail for sending emails
+        // Update user document with new OTP
+        await userModel.updateOne({ username: req.body.username }, { otp: otp });
+        return res.status(400).json({ message: 'OTP sent. Please verify your email.' });
+      }
+
+      // Check if account is inactive
+      if (user.status === "inactive") {
+        // Inform user and prompt to create a new account
+        return res.send({ responseCode: 400, msg: "Your account is inactive. Please create a new account." });
+      }
+
+      // Proceed with login if verified and active
+      if (user.password === req.body.password) {
+        const token = jwt.sign({ data: user }, process.env.JWT_SECRETKEY);
+        return res.send({
           responseCode: 200,
           msg: "Login Successfully",
-          data: data,
+          data: user,
           token: `Bearer ${token}`,
         });
       } else {
-        res.send({ responseCode: 400, msg: "Invalid Username or Password" });
+        return res.send({ responseCode: 400, msg: "Invalid Username or Password" });
       }
-    } else res.send({ responseCode: 404, msg: "No User Found!" });
+    } else {
+      return res.send({ responseCode: 404, msg: "No User Found!" });
+    }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    return next(error);
   }
 };
 
 export const getOtp = async (req, res) => {
   try {
-    let otp = Math.floor(Math.random() * 1000000);
-
-    console.log("otp is:", otp);
-
-    const transporter = nodemailer.createTransport({
-      host: "smtp.ethereal.email",
-      port: 587,
-      auth: {
-        user: "tia.kemmer@ethereal.email",
-        pass: "bwcVbsWZP4242EpcSv",
-      },
-    });
-
-    const mailOptions = {
-      from: '"Sajid" <tia.kemmer@ethereal.email>',
-      to: "mk0180770@gmail.com",
-      subject: "Test Email from Nodemailer",
-      text: `Your OTP is: ${otp}`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error(error);
-      } else {
-        console.log("Email sent:", info.response);
-      }
-    });
-
-    res.send({
-      otp: otp,
-      msg: "Message sent successfully",
-      responseCode: 200,
-    });
+    const otp = generateOtp(6)
+    const emailResp = await sendEmail(req.body.email, " ", otp);
+    if (!emailResp.success) {
+      throw new Error(emailResp.message);
+    }
+    await userModel.updateOne({ username }, { otp: otp });
+    res.send(emailResp)
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
-export const postUser = async (req, res) => {
+export const verifyOtp = async (req, res, next) => {
+
   try {
+    const { username, otp } = req.body;
+
+    // Find the user by username
+    const user = await userModel.findOne({ username });
+
+    // Check if the user exists
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    // Check if OTP timeout has occurred (assuming timeout after 2 minutes)
+    const otpUpdatedAt = new Date(user.updatedAt); // Convert createdAt to Date object
+    const currentTime = new Date();
+    const timeDifference = (currentTime - otpUpdatedAt) / (1000 * 60); // Convert milliseconds to minutes
+
+    if (timeDifference > 1) {
+      const otp = generateOtp(6)
+      await sendEmail(user.email, " ", otp);
+      // Update user document with new OTP
+      await userModel.updateOne({ username }, { otp: otp });
+      return res.status(400).json({ message: 'OTP timeout. New OTP sent' });
+    }
+
+    // Check if the OTP matches
+    if (user.otp !== otp) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    // Update the status of the user to "active"
+    await userModel.updateOne({ username }, { status: 'active' });
+
+    // Send success response
+    res.status(200).json({ message: 'OTP verified!' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const postUser = async (req, res, next) => {
+  try {
+    const otp = generateOtp(6);
     const data = userModel({
       username: req.body.username,
       email: req.body.email,
@@ -87,17 +121,24 @@ export const postUser = async (req, res) => {
       cell1: req.body.cell1,
       cell2: req.body.cell2,
       address: req.body.address,
-      status: req.body.status,
       role: req.body.role,
+      otp: otp,
     });
+    await data.save();
 
-    const result = await data.save();
-    res.status(201).json({ msg: "User created successfully", data: result });
+    // Send email with OTP
+    const emailResp = await sendEmail(req.body.email, " ", otp, next);
+
+    // Send success response
+    res.status(200).json({ responseCode: 200, msg: "Registered Successfully!" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    next(error);
   }
 };
+
+
+
+
 
 // Update user status controller
 export const updateStatus = async (req, res) => {
@@ -105,7 +146,7 @@ export const updateStatus = async (req, res) => {
     const { status, _id } = req.body;
 
     // Validate the status
-    if (!['active', 'inactive'].includes(status)) {
+    if (!['active', 'inactive', 'unverified'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status value' });
     }
 
@@ -122,7 +163,6 @@ export const updateStatus = async (req, res) => {
 
     res.json({ message: 'User status updated successfully', user: updatedUser });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    next(error);
   }
 };
