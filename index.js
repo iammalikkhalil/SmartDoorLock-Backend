@@ -55,5 +55,5 @@ app.get('/', (req, res) => {
 app.use(ErrorHandler);
 
 server.listen(PORT, () => {
-  console.log(`Server is listening on http://${process.env.MQTT_HOST}:${PORT}/`);
+  console.log(`Server is listening on http://localhost:${PORT}/`);
 });

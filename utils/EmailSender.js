@@ -13,10 +13,9 @@ const sendEmail = async (receiverEmail, subject, body, next) => {
                 pass: process.env.GMAIL_APPKEY,
             },
         });
-
         // Compose email
 
-        let otpBody = `Please enter the OTP below to proceed signing in on 30 Days Coding.\n\n${body}\n\nRegards,\nMuhammad Sajid`;
+        let otpBody = `Please enter the OTP below to proceed signing in.\n\n${body}\n\nRegards,\nMuhammad Sajid`;
 
         const mailOptions = {
             from: process.env.GMAIL,

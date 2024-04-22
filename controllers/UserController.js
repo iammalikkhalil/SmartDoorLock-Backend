@@ -18,35 +18,31 @@ export const login = async (req, res, next) => {
     let user = await userModel.findOne({ username: req.body.username }).populate("role");
 
     if (user != null) {
-      // Check if account is verified
-      if (user.status == "unverified") {
-        const otp = generateOtp(6);
-        await sendEmail(user.email, " ", otp); // Assuming you have a function sendEmail for sending emails
-        // Update user document with new OTP
-        await userModel.updateOne({ username: req.body.username }, { otp: otp });
-        return res.status(400).json({ message: 'OTP sent. Please verify your email.' });
-      }
-
       // Check if account is inactive
       if (user.status === "inactive") {
         // Inform user and prompt to create a new account
-        return res.send({ responseCode: 400, msg: "Your account is inactive. Please create a new account." });
+        return res.status(400).json({ message: 'Your account is inactive. Please create a new account.' });
       }
 
       // Proceed with login if verified and active
       if (user.password === req.body.password) {
-        const token = jwt.sign({ data: user }, process.env.JWT_SECRETKEY);
-        return res.send({
-          responseCode: 200,
-          msg: "Login Successfully",
-          data: user,
-          token: `Bearer ${token}`,
-        });
+        // Check if account is verified
+        if (user.status == "unverified") {
+          const otp = generateOtp(6);
+          await sendEmail(user.email, " ", otp); // Assuming you have a function sendEmail for sending emails
+          // Update user document with new OTP
+          await userModel.updateOne({ username: req.body.username }, { otp: otp });
+          return res.status(400).json({ message: 'OTP sent. Please verify your email.', data: user });
+        }
+        else {
+          const token = jwt.sign({ data: user }, process.env.JWT_SECRETKEY);
+          return res.status(200).json({ message: 'Login Successfully', data: user, token: `Bearer ${token}` });
+        }
       } else {
-        return res.send({ responseCode: 400, msg: "Invalid Username or Password" });
+        return res.status(400).json({ message: 'Invalid Username or Password' });
       }
     } else {
-      return res.send({ responseCode: 404, msg: "No User Found!" });
+      return res.status(404).json({ message: 'No User Found!' });
     }
   } catch (error) {
     return next(error);
@@ -99,16 +95,20 @@ export const verifyOtp = async (req, res, next) => {
     }
 
     // Update the status of the user to "active"
-    await userModel.updateOne({ username }, { status: 'active' });
+    await userModel.updateOne({ username }, { status: 'active', otp: '' });
+    user.otp = "";
+    user.status = "active"
 
     // Send success response
-    res.status(200).json({ message: 'OTP verified!' });
+    res.status(200).json({ message: 'OTP verified!', data: user });
   } catch (error) {
     next(error);
   }
 };
 
 export const postUser = async (req, res, next) => {
+  // console.log(req.file);
+  // console.log(req.body);
   try {
     const otp = generateOtp(6);
     const data = userModel({
@@ -124,20 +124,23 @@ export const postUser = async (req, res, next) => {
       role: req.body.role,
       otp: otp,
     });
+
+
+    if (req.body.status !== undefined) {
+      data.status = req.body.status;
+    }
+
     await data.save();
 
     // Send email with OTP
-    const emailResp = await sendEmail(req.body.email, " ", otp, next);
+    await sendEmail(req.body.email, " ", otp, next);
 
     // Send success response
-    res.status(200).json({ responseCode: 200, msg: "Registered Successfully!" });
+    res.status(200).json({ responseCode: 200, message: "Registered Successfully!" });
   } catch (error) {
     next(error);
   }
 };
-
-
-
 
 
 // Update user status controller
