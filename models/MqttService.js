@@ -9,27 +9,42 @@ class MqttService {
       console.log('Connected to MQTT broker');
       this.client.subscribe('MQTTUserRequest');
       this.client.subscribe('MQTTAdminResponse');
+      this.client.subscribe('DoorLock');
     });
 
+    let messageCounter = 0;
+
     this.client.on('message', (topic, message) => {
-      console.log(`message come at topic ${topic}:`, message.toString());
+      console.log(`Message received on topic ${topic}:`, message.toString());
 
       switch (topic) {
         case 'MQTTUserRequest':
-        this.handleMQTTUserRequest(message);
+          if (message.toString().includes('id')) {
+            if (messageCounter === 0) {
+              this.handleMQTTUserRequest(message);
+              ++messageCounter;
+            }
+            // Reset counter after 1 minute
+            setTimeout(() => {
+              messageCounter = 0;
+            }, 60000);
+          }
           break;
-      
         default:
           break;
       }
     });
   }
 
-  handleMQTTUserRequest(message) {
-    let id = message.toString();
-    postRequestById(id)
-    this.io.emit('WSUserRequest', message.toString());
-    console.log("request from mqtt forwarded to socket.io");
+  async handleMQTTUserRequest(message) {
+    let id = message.toString().replace(/^id/, "");
+    let user = await postRequestById(id);
+    if (this.io) {
+      this.io.emit('WSUserRequest', JSON.stringify(user));
+      console.log("Request from MQTT forwarded to socket.io");
+    } else {
+      console.error("WebSocket service (io) is not set");
+    }
   }
 
   setIo(io) {
@@ -41,4 +56,4 @@ class MqttService {
   }
 }
 
-export {MqttService};
+export { MqttService };

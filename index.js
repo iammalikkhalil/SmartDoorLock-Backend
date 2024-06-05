@@ -18,15 +18,21 @@ app.use(express.json());
 const mqttOptions = {
   host: process.env.MQTT_HOST,
   port: 1883,
-  protocol: 'mqtt://',
+  protocol: 'mqtt', // Correct protocol format
   username: process.env.MQTT_USERNAME,
   password: process.env.MQTT_PASSWORD
 };
 
+// Create MQTT Service instance
 const mqttService = new MqttService(mqttOptions);
+
+// Create WebSocket Service instance
 const webSocketService = new WebSocketService(server);
 
+// Set WebSocket io in MQTT service
 mqttService.setIo(webSocketService.io);
+
+// Set MQTT service in WebSocket service
 webSocketService.setMqttService(mqttService);
 
 const __filename = fileURLToPath(import.meta.url);

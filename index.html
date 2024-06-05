@@ -6,7 +6,13 @@
   <body>
     <h1>Socket.IO Client</h1>
 
-    <input type="checkbox" id="door" name="door" value="Door" onclick="sendMessage()"/>
+    <input
+      type="checkbox"
+      id="door"
+      name="door"
+      value="Door"
+      onclick="sendMessage()"
+    />
     <br />
 
     <!-- Include the Socket.IO client library -->
@@ -18,14 +24,13 @@
       const messageList = document.getElementById("messageList");
       const door = document.getElementById("door");
 
-      socket.on("doorRes", (message) => {
+      socket.on("testByServer", (message) => {
         console.log("received ..", message);
-        door.checked = message;
       });
 
       function sendMessage() {
-        console.log("door: ", door.checked);
-        socket.emit("doorReq", door.checked);
+        // console.log("door: ", door.checked);
+        socket.emit("testByWeb", door.checked);
       }
     </script>
   </body>

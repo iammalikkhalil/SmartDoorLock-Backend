@@ -12,6 +12,10 @@ const schema = new mongoose.Schema(
       enum: ['pending', 'accepted', 'rejected', 'timeout'],
       default: 'pending',
     },
+    admin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'user',
+    },
   },
   {
     timestamps: true,

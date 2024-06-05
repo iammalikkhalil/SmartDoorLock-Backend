@@ -77,16 +77,20 @@ export const postRequestById = async (id) => {
   // Schedule the job to update status to 'timeout' after 5 minutes
   setTimeout(() => updateStatusToTimeout(result._id), 5 * 60 * 1000);
 
-  console.log(result);
+  return data;
 };
 
-export const updateRequestById = async (_id, status) => {
+export const updateRequestById = async (_id, admin, status) => {
+  console.log(_id, admin, status);
   try {
-    await requestModel.findByIdAndUpdate(
+    // const foundRequest = await Request.findById(_id);
+    // console.log(foundRequest);
+    let request = await requestModel.findByIdAndUpdate(
       _id,
-      { status },
+      { status, admin },
       { new: true }
     );
+    console.log(request);
   } catch (error) {
     console.log("error in updating request", error);
   }

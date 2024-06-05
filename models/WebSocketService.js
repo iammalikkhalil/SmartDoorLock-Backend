@@ -9,7 +9,13 @@ class WebSocketService {
       console.log('A user connected.');
 
       socket.on('WSAdminResponse', (message) => {
+        console.log('WSAdminResponse: ' + message);
         this.handleWSAdminResponse(socket, message);
+      });
+
+      socket.on('testByWeb', (message) => {
+        console.log('testByWeb: ' + message);
+        socket.emit("testByServer", String(message));
       });
 
       socket.on('disconnect', () => {
@@ -18,32 +24,32 @@ class WebSocketService {
     });
   }
 
-  handleWSAdminResponse(socket, message) {
-    switch (message.status) {
-      case 'accepted':
-        // update database
-        updateRequestById(message._id, message.status);
+  async handleWSAdminResponse(socket, message) {
+    try {
+      let msg = JSON.parse(message) || undefined;
+      if (!msg) throw new Error("Message parsing failed");
 
-        // send response to admin MQTT
-        console.log("request from socket.io forwarded to mqtt");
-        this.mqttService.publish('MQTTAdminResponse', String(1));
-        // update ui for the specific user
-        socket.emit('WSUpdateUI', "1");
+      const { requestId, adminId, status } = msg;
 
-        break;
-      case 'rejected':
-        // update database
-        updateRequestById(message._id, message.status);
+      switch (status) {
+        case 'accepted':
+          await updateRequestById(requestId, adminId, status);
+          console.log("Request from socket.io forwarded to MQTT (accepted)");
+          this.mqttService.publish('MQTTAdminResponse', "1");
+          break;
 
-        // send response to admin MQTT
-        console.log("request from socket.io forwarded to mqtt");
-        this.mqttService.publish('MQTTAdminResponse', String(2));
+        case 'rejected':
+          await updateRequestById(requestId, adminId, status);
+          console.log("Request from socket.io forwarded to MQTT (rejected)");
+          this.mqttService.publish('MQTTAdminResponse', "2");
+          break;
 
-        // update ui for the specific user
-        socket.emit('WSUpdateUI', "1");
-        break;
-      default:
-        break;
+        default:
+          console.log("Default case hit");
+          break;
+      }
+    } catch (error) {
+      console.error("Error handling WSAdminResponse:", error.message);
     }
   }
 
